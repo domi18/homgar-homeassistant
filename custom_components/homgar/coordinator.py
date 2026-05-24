@@ -260,7 +260,7 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     
                     # Trigger coordinator update to notify entities
                     _LOGGER.info("Triggering coordinator update to notify entities")
-                    self.async_set_updated_data(dict(self.devices))
+                    self.async_update_listeners()
                     _LOGGER.info("Coordinator update triggered")
                 else:
                     _LOGGER.warning("Device does not have set_device_status method")
