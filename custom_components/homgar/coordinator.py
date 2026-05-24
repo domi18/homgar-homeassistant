@@ -248,6 +248,7 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 # Update device status based on MQTT data
                 if hasattr(device, 'set_device_status'):
                     _LOGGER.info("Calling set_device_status with data: %s", data)
+                    _LOGGER.warning("REAL MQTT UPDATE RECEIVED: %s", data)
                     device.set_device_status(data)
                     _LOGGER.info("Device status updated successfully")
                     
@@ -395,7 +396,7 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 )
 
                 await asyncio.sleep(60)
-                
+
     def get_device_by_id(self, device_id: str) -> Any:
         """Get device by ID."""
         return self.devices.get(device_id)
