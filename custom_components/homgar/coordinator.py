@@ -174,12 +174,9 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         self.mqtt_subscribed = True
                         _LOGGER.info("MQTT subscription established for real-time updates")
                         
-                        if not self._subscription_check_task:
-                            # Start subscription renewal task
-                            self.hass.bus.async_listen_once(
-                                "homeassistant_started",
-                                lambda _: self._start_subscription_renewal_task()
-                            )
+                        self.hass.async_create_task(
+                            self._delayed_start_subscription_task()
+                        ) 
                     else:
                         _LOGGER.error("Failed to connect to MQTT broker")
                 else:
@@ -370,6 +367,22 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             await asyncio.sleep(60)
 
+    async def _delayed_start_subscription_task(self):
+        """Start renewal task after HA startup is fully complete."""
+
+        await asyncio.sleep(30)
+
+        if not self.hass.is_running:
+            return
+
+        if not self._subscription_check_task:
+
+            _LOGGER.info(
+                "Starting delayed MQTT renewal loop"
+            )
+
+            self._start_subscription_renewal_task()
+            
     def get_device_by_id(self, device_id: str) -> Any:
         """Get device by ID."""
         return self.devices.get(device_id)
