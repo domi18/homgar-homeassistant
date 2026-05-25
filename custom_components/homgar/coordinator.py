@@ -14,6 +14,7 @@ from .api import HomgarApi, HomgarApiException
 from .const import DEFAULT_UPDATE_INTERVAL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.warning("### HOMGAR COORDINATOR VERSION TEST 2026-05-25-1735 ###")
 
 
 class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):

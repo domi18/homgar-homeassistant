@@ -18,6 +18,7 @@ from .devices import HomgarHome, MODEL_CODE_MAPPING, HomgarHubDevice
 from .logutil import TRACE, get_logger
 
 logger = get_logger(__file__)
+logger.warning("### HOMGAR API VERSION TEST 2026-05-25-1735 ###")
 
 
 class HomgarApiException(Exception):
