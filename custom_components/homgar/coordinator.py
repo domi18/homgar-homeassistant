@@ -285,91 +285,102 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
 
     async def _subscription_renewal_loop(self):
-    """Periodically check and renew MQTT subscription."""
+        """Periodically check and renew MQTT subscription."""
 
-    try:
+        try:
 
-        while self.mqtt_connected and self.hass.is_running:
+            while self.mqtt_connected and self.hass.is_running:
 
-            await asyncio.sleep(300)  # Check every 5 minutes
+                await asyncio.sleep(300)  # Check every 5 minutes
 
-            # watchdog MQTT zombie
-            mqtt_silence = time.time() - self.last_mqtt_message
+                # watchdog MQTT zombie
+                mqtt_silence = time.time() - self.last_mqtt_message
 
-            _LOGGER.debug(
-                "MQTT watchdog check - last message %.1f sec ago",
-                mqtt_silence,
-            )
-
-            if (
-                self.last_mqtt_message > 0
-                and mqtt_silence > 600
-            ):
-
-                _LOGGER.warning(
-                    "MQTT appears stalled (%.1f sec) - forcing reconnect",
+                _LOGGER.debug(
+                    "MQTT watchdog check - last message %.1f sec ago",
                     mqtt_silence,
                 )
 
-                self.mqtt_connected = False
-                self.mqtt_subscribed = False
-
-                try:
-
-                    await self.hass.async_add_executor_job(
-                        self.api.disconnect_mqtt
-                    )
-
-                except Exception as err:
+                if (
+                    self.last_mqtt_message > 0
+                    and mqtt_silence > 600
+                ):
 
                     _LOGGER.warning(
-                        "Error disconnecting MQTT: %s",
-                        err,
+                        "MQTT appears stalled (%.1f sec) - forcing reconnect",
+                        mqtt_silence,
                     )
 
-                await asyncio.sleep(5)
+                    self.mqtt_connected = False
+                    self.mqtt_subscribed = False
 
-                await self._setup_mqtt_subscription()
+                    try:
 
-                continue
-
-            if not self.mqtt_connected:
-                break
-
-            # Check if subscription needs renewal
-            needs_renewal = await self.hass.async_add_executor_job(
-                self.api.is_subscription_expired
-            )
-
-            if needs_renewal:
-
-                _LOGGER.info(
-                    "MQTT subscription needs renewal"
-                )
-
-                # Renew subscription
-                renewal_success = await self.hass.async_add_executor_job(
-                    self.api.renew_subscription
-                )
-
-                if renewal_success:
-
-                    # Reconnect MQTT with new credentials
-                    mqtt_connected = await self.hass.async_add_executor_job(
-                        self.api.connect_mqtt,
-                        self._on_mqtt_status_update,
-                    )
-
-                    if mqtt_connected:
-
-                        _LOGGER.info(
-                            "MQTT reconnected after subscription renewal"
+                        await self.hass.async_add_executor_job(
+                            self.api.disconnect_mqtt
                         )
+
+                    except Exception as err:
+
+                        _LOGGER.warning(
+                            "Error disconnecting MQTT: %s",
+                            err,
+                        )
+
+                    await asyncio.sleep(5)
+
+                    await self._setup_mqtt_subscription()
+
+                    continue
+
+                if not self.mqtt_connected:
+                    break
+
+                # Check if subscription needs renewal
+                needs_renewal = await self.hass.async_add_executor_job(
+                    self.api.is_subscription_expired
+                )
+
+                if needs_renewal:
+
+                    _LOGGER.info(
+                        "MQTT subscription needs renewal"
+                    )
+
+                    # Renew subscription
+                    renewal_success = await self.hass.async_add_executor_job(
+                        self.api.renew_subscription
+                    )
+
+                    if renewal_success:
+
+                        # Reconnect MQTT with new credentials
+                        mqtt_connected = await self.hass.async_add_executor_job(
+                            self.api.connect_mqtt,
+                            self._on_mqtt_status_update,
+                        )
+
+                        if mqtt_connected:
+
+                            _LOGGER.info(
+                                "MQTT reconnected after subscription renewal"
+                            )
+
+                        else:
+
+                            _LOGGER.error(
+                                "Failed to reconnect MQTT after subscription renewal"
+                            )
+
+                            self.mqtt_connected = False
+                            self.mqtt_subscribed = False
+
+                            break
 
                     else:
 
                         _LOGGER.error(
-                            "Failed to reconnect MQTT after subscription renewal"
+                            "Failed to renew MQTT subscription"
                         )
 
                         self.mqtt_connected = False
@@ -377,32 +388,21 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
                         break
 
-                else:
+        except asyncio.CancelledError:
 
-                    _LOGGER.error(
-                        "Failed to renew MQTT subscription"
-                    )
+            _LOGGER.info(
+                "MQTT renewal loop cancelled"
+            )
 
-                    self.mqtt_connected = False
-                    self.mqtt_subscribed = False
+        except Exception as err:
 
-                    break
+            _LOGGER.error(
+                "Error in subscription renewal loop: %s",
+                err,
+            )
 
-    except asyncio.CancelledError:
+            await asyncio.sleep(60)
 
-        _LOGGER.info(
-            "MQTT renewal loop cancelled"
-        )
-
-    except Exception as err:
-
-        _LOGGER.error(
-            "Error in subscription renewal loop: %s",
-            err,
-        )
-
-        await asyncio.sleep(60)
-        
     def get_device_by_id(self, device_id: str) -> Any:
         """Get device by ID."""
         return self.devices.get(device_id)

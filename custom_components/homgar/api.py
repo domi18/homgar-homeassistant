@@ -390,17 +390,33 @@ class HomgarApi:
                 logger.info("Attempting to connect to MQTT broker at %s:%d", host, port)
                 
                 try:
+                    import ssl
+                    self.mqtt_client.tls_set(
+                        cert_reqs=ssl.CERT_NONE
+                    )
+                    self.mqtt_client.tls_insecure_set(True)
+                    logger.warning("MQTT TLS ENABLED")
                     self.mqtt_client.connect(host, port, 60)
-                    logger.debug("MQTT connect() call succeeded, starting loop")
+                    logger.debug(
+                        "MQTT connect() call succeeded, starting loop"
+                    )
                     self.mqtt_client.loop_start()
-                    logger.debug("MQTT loop started successfully")
+                    logger.debug(
+                        "MQTT loop started successfully"
+                    )
                     return True
+
                 except Exception as connect_error:
-                    logger.error("MQTT connection failed: %s", connect_error)
+                    logger.error(
+                        "MQTT connection failed: %s",
+                        connect_error
+                    )
                     return False
-                
             except Exception as e:
-                logger.error("Failed to connect to MQTT: %s", e)
+                logger.error(
+                    "Failed to connect to MQTT: %s",
+                    e
+                )
                 return False
 
     def _on_mqtt_connect(self, client, userdata, flags, rc):
