@@ -506,8 +506,16 @@ class HomgarApi:
                     )
 
         except json.JSONDecodeError:
-            logger.debug(
-                "Ignoring non-JSON MQTT payload"
+            logger.warning(
+                "NON JSON MQTT PAYLOAD RECEIVED"
+            )
+            logger.warning(
+                "TOPIC = %s",
+                msg.topic
+            )
+            logger.warning(
+                "PAYLOAD = %s",
+                payload
             )
 
         except Exception as e:
