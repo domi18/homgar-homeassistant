@@ -118,6 +118,11 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         dev.temp_mk_current,
                     )
             # MQTT setup
+            _LOGGER.warning(
+                "MQTT STATE connected=%s subscribed=%s",
+                self.mqtt_connected,
+                self.mqtt_subscribed
+            )
             if not self.mqtt_subscribed:
                 _LOGGER.warning(
                     "MQTT not subscribed yet -> setup"
@@ -152,6 +157,9 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _setup_mqtt_subscription(self) -> None:
         """Set up MQTT subscription for real-time device updates."""
         _LOGGER.info("Starting MQTT subscription setup")
+        # RESET FORCÉ ÉTAT MQTT
+        self.mqtt_connected = False
+        self.mqtt_subscribed = False
         try:
             if not self.homes or not self.devices:
                 _LOGGER.warning("No homes (%s) or devices (%s) available for MQTT subscription", 
@@ -223,8 +231,11 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         ) 
                     else:
                         self.mqtt_connected = False
+                        self.mqtt_subscribed = False
                         _LOGGER.error("Failed to connect to MQTT broker")
                 else:
+                    self.mqtt_connected = False
+                    self.mqtt_subscribed = False
                     _LOGGER.error("Failed to subscribe to device status updates")
             else:
                 _LOGGER.warning("No devices to subscribe to (devices_to_subscribe=%d, hid_list=%d)", 
