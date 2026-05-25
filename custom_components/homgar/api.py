@@ -18,7 +18,6 @@ from .devices import HomgarHome, MODEL_CODE_MAPPING, HomgarHubDevice
 from .logutil import TRACE, get_logger
 
 logger = get_logger(__file__)
-logger.warning("### HOMGAR API VERSION TEST 2026-05-25-1735 ###")
 
 
 class HomgarApiException(Exception):
@@ -65,9 +64,42 @@ class HomgarApi:
         headers = {"lang": "en", "appCode": "1", **(headers or {})}
         if with_auth:
             headers["auth"] = self.cache["token"]
-        response = requests.request(method, url, headers=headers, timeout=10, **kwargs)
-        logger.log(TRACE, "-[%03d]-> %s", response.status_code, response.text)
-        return response
+        last_err = None
+        for attempt in range(1, 3):
+            try:
+                response = requests.request(
+                    method,
+                    url,
+                    headers=headers,
+                    timeout=10,
+                    **kwargs
+                )
+                logger.log(TRACE, "-[%03d]-> %s", response.status_code, response.text)
+                return response
+
+            except requests.exceptions.Timeout as err:
+                last_err = err
+                logger.warning(
+                    "HomGar request timeout attempt %d/2: %s %s",
+                    attempt,
+                    method,
+                    url
+                )
+                if attempt < 2:
+                    time.sleep(2)
+
+            except requests.exceptions.RequestException as err:
+                last_err = err
+                logger.warning(
+                    "HomGar request error attempt %d/2: %s %s : %s",
+                    attempt,
+                    method,
+                    url,
+                    err
+                )
+                if attempt < 2:
+                    time.sleep(2)
+        raise last_err
 
     def _request_json(self, method, path, **kwargs):
         response = self._request(method, self.base + path, **kwargs).json()
@@ -342,7 +374,7 @@ class HomgarApi:
                     self.subscription_data.get('productKey'),
                     "***" if self.subscription_data.get('deviceSecret') else None)
             
-        if callback:
+        if callback and callback not in self.status_callbacks:
             self.status_callbacks.append(callback)
             logger.debug("Added status callback (total callbacks: %d)", len(self.status_callbacks))
             
@@ -427,6 +459,14 @@ class HomgarApi:
                     logger.error(
                         "MQTT connection timeout waiting for CONNACK"
                     )
+                    try:
+                        if self.mqtt_client:
+                            self.mqtt_client.loop_stop()
+                            self.mqtt_client.disconnect()
+                    except Exception:
+                        pass
+                    self.mqtt_client = None
+                    self.mqtt_connected = False
                     return False
 
                 except Exception as connect_error:
@@ -434,7 +474,16 @@ class HomgarApi:
                         "MQTT connection failed: %s",
                         connect_error
                     )
+                    try:
+                        if self.mqtt_client:
+                            self.mqtt_client.loop_stop()
+                            self.mqtt_client.disconnect()
+                    except Exception:
+                        pass
+                    self.mqtt_client = None
+                    self.mqtt_connected = False
                     return False
+                
             except Exception as e:
                 logger.error(
                     "Failed to connect to MQTT: %s",

@@ -14,7 +14,6 @@ from .api import HomgarApi, HomgarApiException
 from .const import DEFAULT_UPDATE_INTERVAL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.warning("### HOMGAR COORDINATOR VERSION TEST 2026-05-25-1735 ###")
 
 
 class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -47,6 +46,7 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         self.last_mqtt_message = time.time()
         self.last_successful_refresh = 0
+        self.last_mqtt_attempt = 0
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API endpoint."""
@@ -124,13 +124,19 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.mqtt_connected,
                 self.mqtt_subscribed
             )
-            if not self.mqtt_subscribed:
+            now = time.time()
+
+            if not self.mqtt_subscribed and now - self.last_mqtt_attempt > 1800:
+                self.last_mqtt_attempt = now
                 _LOGGER.warning(
                     "MQTT not subscribed yet -> setup"
                 )
-
                 await self._setup_mqtt_subscription()
-            self.async_set_updated_data(dict(self.devices))
+            elif not self.mqtt_subscribed:
+                _LOGGER.warning(
+                    "MQTT not subscribed, retry delayed. Last attempt %.0f seconds ago",
+                    now - self.last_mqtt_attempt
+                )                
             self.last_successful_refresh = time.time()
             duration = time.time() - start
             _LOGGER.warning(

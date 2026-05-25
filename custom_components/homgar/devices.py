@@ -796,22 +796,22 @@ class HomgarIndoorSensor(HomgarSubDevice):
         self.hum_current = None
 
     def _parse_device_specific_status_d_value(self, s):
-        logger.warning(
+        logger.debug(
             "INDOOR SENSOR RAW = %s",
             s
         )
         try:
             temp_str, hum_str, *_ = s.split(',')
-            logger.warning(
+            logger.debug(
                 "TEMP STRING = %s",
                 temp_str
             )
-            logger.warning(
+            logger.debug(
                 "HUM STRING = %s",
                 hum_str
             )
             t, *_ = _parse_stats_value(temp_str)
-            logger.warning(
+            logger.debug(
                 "PARSED TEMP = %s",
                 t
             )
@@ -820,17 +820,17 @@ class HomgarIndoorSensor(HomgarSubDevice):
                 if t is not None
                 else None
             )
-            logger.warning(
+            logger.debug(
                 "TEMP MK CURRENT = %s",
                 self.temp_mk_current
             )
             h, *_ = _parse_stats_value(hum_str)
-            logger.warning(
+            logger.debug(
                 "PARSED HUM = %s",
                 h
             )
             self.hum_current = _safe_int(h)
-            logger.warning(
+            logger.debug(
                 "HUM CURRENT = %s",
                 self.hum_current
             )
