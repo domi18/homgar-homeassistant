@@ -411,12 +411,25 @@ class HomgarApi:
             logger.debug("Preparing to subscribe with productKey: %s, deviceName: %s", product_key, device_name)
             
             if product_key and device_name:
-                topic = f"/{product_key}/{device_name}/user/status"
-                logger.debug("Subscribing to MQTT topic: %s", topic)
-                result = client.subscribe(topic)
-                logger.info("MQTT subscription result: %s for topic: %s", result, topic)
+
+               # DEBUG : subscribe to ALL MQTT traffic
+               topic = "#"
+
+               logger.warning("MQTT DEBUG MODE ENABLED")
+               logger.warning("Subscribing to ALL MQTT topics: %s", topic)
+
+               result = client.subscribe(topic)
+
+               logger.info(
+                   "MQTT wildcard subscription result: %s for topic: %s",
+                   result,
+                   topic
+                )
+
             else:
-                logger.error("Cannot subscribe to MQTT topic: missing productKey or deviceName")
+                logger.error(
+                    "Cannot subscribe to MQTT topic: missing productKey or deviceName"
+                )
         else:
             error_messages = {
                 1: "Connection refused - incorrect protocol version",
