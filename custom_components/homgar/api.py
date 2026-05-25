@@ -406,7 +406,7 @@ class HomgarApi:
                     logger.debug(
                         "Waiting for MQTT CONNACK..."
                     )
-                    timeout = 10
+                    timeout = 5
                     while timeout > 0:
                         if self.mqtt_connected:
                             logger.warning(

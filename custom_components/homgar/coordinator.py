@@ -44,7 +44,7 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.mqtt_subscribed = False
         self._subscription_check_task = None
 
-        self.last_mqtt_message = 0
+        self.last_mqtt_message = time.time()
         self.last_successful_refresh = 0
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -174,8 +174,12 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         self.mqtt_subscribed = True
                         _LOGGER.info("MQTT subscription established for real-time updates")
                         
-                        # Start subscription renewal task
-                        self._start_subscription_renewal_task()
+                        if not self._subscription_check_task:
+                            # Start subscription renewal task
+                            self.hass.bus.async_listen_once(
+                                "homeassistant_started",
+                                lambda _: self._start_subscription_renewal_task()
+                            )
                     else:
                         _LOGGER.error("Failed to connect to MQTT broker")
                 else:
@@ -291,47 +295,10 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             while self.mqtt_connected and self.hass.is_running:
 
-                await asyncio.sleep(300)  # Check every 5 minutes
-
-                # watchdog MQTT zombie
-                mqtt_silence = time.time() - self.last_mqtt_message
-
-                _LOGGER.debug(
-                    "MQTT watchdog check - last message %.1f sec ago",
-                    mqtt_silence,
-                )
-
-                if (
-                    self.last_mqtt_message > 0
-                    and mqtt_silence > 600
-                ):
-
-                    _LOGGER.warning(
-                        "MQTT appears stalled (%.1f sec) - forcing reconnect",
-                        mqtt_silence,
-                    )
-
-                    self.mqtt_connected = False
-                    self.mqtt_subscribed = False
-
-                    try:
-
-                        await self.hass.async_add_executor_job(
-                            self.api.disconnect_mqtt
-                        )
-
-                    except Exception as err:
-
-                        _LOGGER.warning(
-                            "Error disconnecting MQTT: %s",
-                            err,
-                        )
-
-                    await asyncio.sleep(5)
-
-                    await self._setup_mqtt_subscription()
-
-                    continue
+                for _ in range(300):
+                    if not self.hass.is_running:
+                        return
+                    await asyncio.sleep(1)
 
                 if not self.mqtt_connected:
                     break
