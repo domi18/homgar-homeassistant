@@ -795,50 +795,50 @@ class HomgarIndoorSensor(HomgarSubDevice):
         self.temp_mk_current = None
         self.hum_current = None
 
-def _parse_device_specific_status_d_value(self, s):
-    logger.warning(
-        "INDOOR SENSOR RAW = %s",
-        s
-    )
-    try:
-        temp_str, hum_str, *_ = s.split(',')
+    def _parse_device_specific_status_d_value(self, s):
         logger.warning(
-            "TEMP STRING = %s",
-            temp_str
+            "INDOOR SENSOR RAW = %s",
+            s
         )
-        logger.warning(
-            "HUM STRING = %s",
-            hum_str
-        )
-        t, *_ = _parse_stats_value(temp_str)
-        logger.warning(
-            "PARSED TEMP = %s",
-            t
-        )
-        self.temp_mk_current = (
-            _temp_to_mk(t)
-            if t is not None
-            else None
-        )
-        logger.warning(
-            "TEMP MK CURRENT = %s",
-            self.temp_mk_current
-        )
-        h, *_ = _parse_stats_value(hum_str)
-        logger.warning(
-            "PARSED HUM = %s",
-            h
-        )
-        self.hum_current = _safe_int(h)
-        logger.warning(
-            "HUM CURRENT = %s",
-            self.hum_current
-        )
-    except Exception as e:
-        logger.error(
-            "INDOOR SENSOR PARSE ERROR: %s",
-            e
-        )
+        try:
+            temp_str, hum_str, *_ = s.split(',')
+            logger.warning(
+                "TEMP STRING = %s",
+                temp_str
+            )
+            logger.warning(
+                "HUM STRING = %s",
+                hum_str
+            )
+            t, *_ = _parse_stats_value(temp_str)
+            logger.warning(
+                "PARSED TEMP = %s",
+                t
+            )
+            self.temp_mk_current = (
+                _temp_to_mk(t)
+                if t is not None
+                else None
+            )
+            logger.warning(
+                "TEMP MK CURRENT = %s",
+                self.temp_mk_current
+            )
+            h, *_ = _parse_stats_value(hum_str)
+            logger.warning(
+                "PARSED HUM = %s",
+                h
+            )
+            self.hum_current = _safe_int(h)
+            logger.warning(
+                "HUM CURRENT = %s",
+                self.hum_current
+            )
+        except Exception as e:
+            logger.error(
+                "INDOOR SENSOR PARSE ERROR: %s",
+                e
+            )
 
 MODEL_CODE_MAPPING = {
     code: clazz
