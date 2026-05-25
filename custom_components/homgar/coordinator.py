@@ -49,62 +49,106 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API endpoint."""
+        start = time.time()
+        _LOGGER.warning(
+            "=== HOMGAR REFRESH START ts=%s ===",
+            start
+        )
         try:
-            _LOGGER.debug("Homgar refresh cycle START")
-            # Ensure we're logged in
+            _LOGGER.debug("Ensuring login")
             await self.hass.async_add_executor_job(
-                self.api.ensure_logged_in, self.email, self.password, self.area_code
+                self.api.ensure_logged_in,
+                self.email,
+                self.password,
+                self.area_code
             )
-
+            _LOGGER.debug("Login OK")
             # Get homes
-            homes = await self.hass.async_add_executor_job(self.api.get_homes)
+            _LOGGER.debug("Fetching homes")
+            homes = await self.hass.async_add_executor_job(
+                self.api.get_homes
+            )
             self.homes = homes
-
+            _LOGGER.warning(
+                "Homes fetched: %d",
+                len(homes)
+            )
             # Get devices for each home
             devices = {}
             for home in homes:
-                hubs = await self.hass.async_add_executor_job(
-                    self.api.get_devices_for_hid, home.hid
+                _LOGGER.warning(
+                    "Fetching devices for HID=%s",
+                    home.hid
                 )
-                
+                hubs = await self.hass.async_add_executor_job(
+                    self.api.get_devices_for_hid,
+                    home.hid
+                )
+                _LOGGER.warning(
+                    "Hubs fetched for HID=%s : %d",
+                    home.hid,
+                    len(hubs)
+                )
                 for hub in hubs:
-                    # Get device status
-                    await self.hass.async_add_executor_job(
-                        self.api.get_device_status, hub
+                    _LOGGER.warning(
+                        "Fetching status for HUB mid=%s",
+                        hub.mid
                     )
-                    
+                    await self.hass.async_add_executor_job(
+                        self.api.get_device_status,
+                        hub
+                    )
+                    _LOGGER.warning(
+                        "Status OK for HUB mid=%s",
+                        hub.mid
+                    )
                     # Store hub
                     devices[f"hub_{hub.mid}"] = hub
-                    
                     # Store subdevices
                     for subdevice in hub.subdevices:
-                        devices[f"device_{subdevice.mid}_{subdevice.address}"] = subdevice
-
+                        devices[
+                            f"device_{subdevice.mid}_{subdevice.address}"
+                        ] = subdevice
             self.devices = devices
             for dev_id, dev in self.devices.items():
                 if hasattr(dev, "temp_mk_current"):
-                    _LOGGER.debug(
-                       "Device %s temp_mk_current=%s",
+                    _LOGGER.warning(
+                        "TEMP UPDATE %s temp=%s",
                         dev_id,
                         dev.temp_mk_current,
                     )
-
-            
-            # Set up MQTT subscription for real-time updates
+            # MQTT setup
             if not self.mqtt_subscribed:
+                _LOGGER.warning(
+                    "MQTT not subscribed yet -> setup"
+                )
+
                 await self._setup_mqtt_subscription()
-            
             self.async_set_updated_data(dict(self.devices))
             self.last_successful_refresh = time.time()
-            _LOGGER.debug("Homgar refresh cycle END")
-
+            duration = time.time() - start
+            _LOGGER.warning(
+                "=== HOMGAR REFRESH END duration=%.1fs ===",
+                duration
+            )
             return devices
 
         except HomgarApiException as err:
-            raise UpdateFailed(f"Error communicating with HomGar API: {err}") from err
-        except Exception as err:
-            raise UpdateFailed(f"Unexpected error: {err}") from err
+            _LOGGER.exception(
+                "HOMGAR API EXCEPTION"
+            )
+            raise UpdateFailed(
+                f"Error communicating with HomGar API: {err}"
+            ) from err
 
+        except Exception as err:
+            _LOGGER.exception(
+                "HOMGAR UNEXPECTED EXCEPTION"
+            )
+            raise UpdateFailed(
+                f"Unexpected error: {err}"
+            ) from err
+            
     async def _setup_mqtt_subscription(self) -> None:
         """Set up MQTT subscription for real-time device updates."""
         _LOGGER.info("Starting MQTT subscription setup")

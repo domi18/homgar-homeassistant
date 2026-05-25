@@ -64,7 +64,7 @@ class HomgarApi:
         headers = {"lang": "en", "appCode": "1", **(headers or {})}
         if with_auth:
             headers["auth"] = self.cache["token"]
-        response = requests.request(method, url, headers=headers, timeout=30, **kwargs)
+        response = requests.request(method, url, headers=headers, timeout=10, **kwargs)
         logger.log(TRACE, "-[%03d]-> %s", response.status_code, response.text)
         return response
 
@@ -391,12 +391,20 @@ class HomgarApi:
                 logger.info("Attempting to connect to MQTT broker at %s:%d", host, port)
                 
                 try:
-                    import ssl
-                    self.mqtt_client.tls_set(
-                        cert_reqs=ssl.CERT_NONE
-                    )
-                    self.mqtt_client.tls_insecure_set(True)
-                    logger.warning("MQTT TLS ENABLED")
+                    if port == 8883:
+                        import ssl
+                        self.mqtt_client.tls_set(
+                            cert_reqs=ssl.CERT_NONE
+                        )
+                        self.mqtt_client.tls_insecure_set(True)
+                        logger.warning(
+                            "MQTT TLS ENABLED (port 8883)"
+                        )
+                    else:
+                        logger.warning(
+                            "MQTT PLAINTEXT MODE (port %s)",
+                            port
+                        )
                     self.mqtt_connected = False
                     self.mqtt_client.connect(host, port, 60)
                     logger.debug(
