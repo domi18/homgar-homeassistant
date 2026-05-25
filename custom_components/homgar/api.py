@@ -64,7 +64,7 @@ class HomgarApi:
         headers = {"lang": "en", "appCode": "1", **(headers or {})}
         if with_auth:
             headers["auth"] = self.cache["token"]
-        response = self.session.request(method, url, headers=headers, **kwargs)
+        response = requests.request(method, url, headers=headers, timeout=30, **kwargs)
         logger.log(TRACE, "-[%03d]-> %s", response.status_code, response.text)
         return response
 
