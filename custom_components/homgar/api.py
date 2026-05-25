@@ -452,16 +452,16 @@ class HomgarApi:
             
             if product_key and device_name:
 
-               # DEBUG : subscribe to ALL MQTT traffic
-               topic = "#"
-
-               logger.warning("MQTT DEBUG MODE ENABLED")
-               logger.warning("Subscribing to ALL MQTT topics: %s", topic)
+               topic = f"/{product_key}/{device_name}/user/status"
+               logger.info(
+                    "Subscribing to MQTT topic: %s",
+                    topic
+                )
 
                result = client.subscribe(topic)
 
                logger.info(
-                   "MQTT wildcard subscription result: %s for topic: %s",
+                   "MQTT subscription result: %s for topic: %s",
                    result,
                    topic
                 )
@@ -484,54 +484,37 @@ class HomgarApi:
 
     def _on_mqtt_message(self, client, userdata, msg):
         """MQTT message callback"""
-        logger.debug("MQTT message callback triggered")
-        logger.warning("=== MQTT MESSAGE RECEIVED ===")
-        logger.warning("Topic: %s", msg.topic)
 
         try:
-           logger.warning("Payload: %s", msg.payload.decode())
-        except Exception:
-           logger.warning("Payload decode failed")
+            payload = msg.payload.decode("utf-8")
 
-        try:
-            topic = msg.topic
-            payload = msg.payload.decode('utf-8')
-            logger.info("=== MQTT MESSAGE RECEIVED ===")
-            logger.info("Topic: %s", topic)
-            logger.info("Raw payload: %s", payload)
-            logger.info("Payload length: %d bytes", len(payload))
-            logger.info("Payload hex: %s", payload.encode('utf-8').hex())
-            
-            # Try to parse as JSON
-            try:
-                data = json.loads(payload)
-                logger.info("Successfully parsed as JSON:")
-                logger.info("JSON structure: %s", json.dumps(data, indent=2))
-                
-                # Log detailed analysis of the JSON structure
-                self._analyze_mqtt_json_message(data)
-                
-                # Call status callbacks
-                logger.debug("Calling %d status callbacks with parsed data", len(self.status_callbacks))
-                for i, callback in enumerate(self.status_callbacks):
-                    try:
-                        logger.debug("Executing callback %d", i)
-                        callback(data)
-                        logger.debug("Callback %d executed successfully", i)
-                    except Exception as callback_error:
-                        logger.error("Error in callback %d: %s", i, callback_error)
-                        
-            except json.JSONDecodeError as json_error:
-                logger.warning("Failed to parse as JSON: %s", json_error)
-                logger.info("Attempting alternative parsing methods...")
-                
-                # Try to parse as other formats
-                self._analyze_non_json_mqtt_message(payload)
-                
-            logger.info("=== END MQTT MESSAGE ===")
-                
+            logger.debug(
+                "MQTT message received on topic %s",
+                msg.topic
+            )
+
+            data = json.loads(payload)
+
+            for callback in self.status_callbacks:
+                try:
+                    callback(data)
+
+                except Exception as callback_error:
+                    logger.error(
+                        "Error in MQTT callback: %s",
+                        callback_error
+                    )
+
+        except json.JSONDecodeError:
+            logger.debug(
+                "Ignoring non-JSON MQTT payload"
+            )
+
         except Exception as e:
-            logger.error("Error processing MQTT message: %s", e)
+            logger.error(
+                "Error processing MQTT message: %s",
+                e
+            )
     
     def _analyze_mqtt_json_message(self, data):
         """Analyze and log detailed information about JSON MQTT messages"""
@@ -669,7 +652,10 @@ class HomgarApi:
         if rc == 0:
             logger.info("MQTT disconnected cleanly (code %s)", rc)
         else:
-            logger.debug("MQTT disconnected unexpectedly with code %s", rc)
+            logger.warning(
+                "MQTT disconnected unexpectedly with code %s",
+                rc
+            )
         self.mqtt_connected = False
 
     def disconnect_mqtt(self):
