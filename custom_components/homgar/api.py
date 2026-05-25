@@ -319,11 +319,16 @@ class HomgarApi:
         :param callback: Optional callback function for status updates
         :return: True if connection successful
         """
+        logger.warning("=== CONNECT_MQTT START ===")
         logger.info("Starting MQTT connection")
         if not self.subscription_data:
             logger.error("No subscription data available for MQTT connection")
             return False
-            
+        logger.warning(
+            "subscription_data = %s",
+            self.subscription_data
+            )
+
         if mqtt is None:
             logger.error("MQTT library not available")
             return False
@@ -347,7 +352,9 @@ class HomgarApi:
             try:
                 logger.debug("Creating MQTT client")
                 self.mqtt_client = mqtt.Client()
+                logger.warning("MQTT client object created")
                 self.mqtt_client.on_connect = self._on_mqtt_connect
+                logger.warning("MQTT callbacks registered")
                 self.mqtt_client.on_message = self._on_mqtt_message
                 self.mqtt_client.on_disconnect = self._on_mqtt_disconnect
                 
@@ -399,6 +406,8 @@ class HomgarApi:
     def _on_mqtt_connect(self, client, userdata, flags, rc):
         """MQTT connection callback"""
         logger.info("MQTT connection callback triggered with code: %s", rc)
+        logger.warning("=== _ON_MQTT_CONNECT CALLED ===")
+        logger.warning("MQTT CONNECT rc=%s", rc)
         
         if rc == 0:
             logger.info("MQTT connected successfully")
@@ -445,6 +454,14 @@ class HomgarApi:
     def _on_mqtt_message(self, client, userdata, msg):
         """MQTT message callback"""
         logger.debug("MQTT message callback triggered")
+        logger.warning("=== MQTT MESSAGE RECEIVED ===")
+        logger.warning("Topic: %s", msg.topic)
+
+        try:
+           logger.warning("Payload: %s", msg.payload.decode())
+        except Exception:
+           logger.warning("Payload decode failed")
+
         try:
             topic = msg.topic
             payload = msg.payload.decode('utf-8')
