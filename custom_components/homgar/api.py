@@ -4,6 +4,7 @@ import os
 import json
 import threading
 import uuid
+import time
 from datetime import datetime, timedelta
 from typing import Optional, List, Callable
 
@@ -396,15 +397,28 @@ class HomgarApi:
                     )
                     self.mqtt_client.tls_insecure_set(True)
                     logger.warning("MQTT TLS ENABLED")
+                    self.mqtt_connected = False
                     self.mqtt_client.connect(host, port, 60)
                     logger.debug(
                         "MQTT connect() call succeeded, starting loop"
                     )
                     self.mqtt_client.loop_start()
                     logger.debug(
-                        "MQTT loop started successfully"
+                        "Waiting for MQTT CONNACK..."
                     )
-                    return True
+                    timeout = 10
+                    while timeout > 0:
+                        if self.mqtt_connected:
+                            logger.warning(
+                                "MQTT REAL CONNECTION SUCCESS"
+                            )
+                            return True
+                        time.sleep(1)
+                        timeout -= 1
+                    logger.error(
+                        "MQTT connection timeout waiting for CONNACK"
+                    )
+                    return False
 
                 except Exception as connect_error:
                     logger.error(
@@ -426,6 +440,7 @@ class HomgarApi:
         logger.warning("MQTT CONNECT rc=%s", rc)
         
         if rc == 0:
+            self.mqtt_connected = True
             logger.info("MQTT connected successfully")
             self.mqtt_connected = True
             
