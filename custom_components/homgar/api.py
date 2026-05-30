@@ -353,15 +353,18 @@ class HomgarApi:
         :param callback: Optional callback function for status updates
         :return: True if connection successful
         """
-        logger.warning("=== CONNECT_MQTT START ===")
-        logger.info("Starting MQTT connection")
+        logger.debug("=== CONNECT_MQTT START ===")
+        logger.debug("Starting MQTT connection")
         if not self.subscription_data:
             logger.error("No subscription data available for MQTT connection")
             return False
-        logger.warning(
-            "subscription_data = %s",
-            self.subscription_data
-            )
+        logger.debug(
+            "subscription_data = productKey=%s deviceName=%s mqttHostUrl=%s expire=%s",
+            self.subscription_data.get("productKey"),
+            self.subscription_data.get("deviceName"),
+            self.subscription_data.get("mqttHostUrl"),
+            self.subscription_data.get("expire"),
+        )
 
         if mqtt is None:
             logger.error("MQTT library not available")
@@ -386,9 +389,9 @@ class HomgarApi:
             try:
                 logger.debug("Creating MQTT client")
                 self.mqtt_client = mqtt.Client()
-                logger.warning("MQTT client object created")
+                logger.debug("MQTT client object created")
                 self.mqtt_client.on_connect = self._on_mqtt_connect
-                logger.warning("MQTT callbacks registered")
+                logger.debug("MQTT callbacks registered")
                 self.mqtt_client.on_message = self._on_mqtt_message
                 self.mqtt_client.on_disconnect = self._on_mqtt_disconnect
                 
@@ -421,7 +424,7 @@ class HomgarApi:
                     host = mqtt_url
                     port = 1883
                     
-                logger.info("Attempting to connect to MQTT broker at %s:%d", host, port)
+                logger.debug("Attempting to connect to MQTT broker at %s:%d", host, port)
                 
                 try:
                     if port == 8883:
@@ -430,11 +433,11 @@ class HomgarApi:
                             cert_reqs=ssl.CERT_NONE
                         )
                         self.mqtt_client.tls_insecure_set(True)
-                        logger.warning(
+                        logger.debug(
                             "MQTT TLS ENABLED (port 8883)"
                         )
                     else:
-                        logger.warning(
+                        logger.debug(
                             "MQTT PLAINTEXT MODE (port %s)",
                             port
                         )
@@ -456,7 +459,7 @@ class HomgarApi:
                             return True
                         time.sleep(1)
                         timeout -= 1
-                    logger.error(
+                    logger.debug(
                         "MQTT connection timeout waiting for CONNACK"
                     )
                     try:
@@ -494,8 +497,8 @@ class HomgarApi:
     def _on_mqtt_connect(self, client, userdata, flags, rc):
         """MQTT connection callback"""
         logger.info("MQTT connection callback triggered with code: %s", rc)
-        logger.warning("=== _ON_MQTT_CONNECT CALLED ===")
-        logger.warning("MQTT CONNECT rc=%s", rc)
+        logger.debug("=== _ON_MQTT_CONNECT CALLED ===")
+        logger.debug("MQTT CONNECT rc=%s", rc)
         
         if rc == 0:
             self.mqtt_connected = True

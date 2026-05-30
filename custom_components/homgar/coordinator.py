@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+import requests
 from datetime import timedelta
 from typing import Any, Optional
 
@@ -51,7 +52,7 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API endpoint."""
         start = time.time()
-        _LOGGER.warning(
+        _LOGGER.debug(
             "=== HOMGAR REFRESH START ts=%s ===",
             start
         )
@@ -70,14 +71,14 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.api.get_homes
             )
             self.homes = homes
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "Homes fetched: %d",
                 len(homes)
             )
             # Get devices for each home
             devices = {}
             for home in homes:
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "Fetching devices for HID=%s",
                     home.hid
                 )
@@ -85,13 +86,13 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self.api.get_devices_for_hid,
                     home.hid
                 )
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "Hubs fetched for HID=%s : %d",
                     home.hid,
                     len(hubs)
                 )
                 for hub in hubs:
-                    _LOGGER.warning(
+                    _LOGGER.debug(
                         "Fetching status for HUB mid=%s",
                         hub.mid
                     )
@@ -99,7 +100,7 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         self.api.get_device_status,
                         hub
                     )
-                    _LOGGER.warning(
+                    _LOGGER.debug(
                         "Status OK for HUB mid=%s",
                         hub.mid
                     )
@@ -113,13 +114,13 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.devices = devices
             for dev_id, dev in self.devices.items():
                 if hasattr(dev, "temp_mk_current"):
-                    _LOGGER.warning(
+                    _LOGGER.debug(
                         "TEMP UPDATE %s temp=%s",
                         dev_id,
                         dev.temp_mk_current,
                     )
             # MQTT setup
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "MQTT STATE connected=%s subscribed=%s",
                 self.mqtt_connected,
                 self.mqtt_subscribed
@@ -128,18 +129,18 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             if not self.mqtt_subscribed and now - self.last_mqtt_attempt > 1800:
                 self.last_mqtt_attempt = now
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "MQTT not subscribed yet -> setup"
                 )
                 await self._setup_mqtt_subscription()
             elif not self.mqtt_subscribed:
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "MQTT not subscribed, retry delayed. Last attempt %.0f seconds ago",
                     now - self.last_mqtt_attempt
                 )                
             self.last_successful_refresh = time.time()
             duration = time.time() - start
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "=== HOMGAR REFRESH END duration=%.1fs ===",
                 duration
             )
@@ -151,6 +152,22 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             raise UpdateFailed(
                 f"Error communicating with HomGar API: {err}"
+            ) from err
+
+        except requests.exceptions.RequestException as err:
+            if self.devices:
+                _LOGGER.warning(
+                    "HomGar cloud timeout/error, keeping last known data: %s",
+                    err
+                )
+                return dict(self.devices)
+
+            _LOGGER.exception(
+                "HOMGAR REQUEST EXCEPTION WITH NO CACHED DATA"
+            )
+
+            raise UpdateFailed(
+                f"Error communicating with HomGar cloud: {err}"
             ) from err
 
         except Exception as err:
@@ -200,7 +217,7 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         devices_to_subscribe.append(device_info)
                         _LOGGER.debug("Added hub device for subscription: %s", device_info)
                     else:
-                        _LOGGER.warning("Hub device %s missing required attributes for subscription: hub_device_name=%s, hub_product_key=%s", 
+                        _LOGGER.debug("Hub device %s missing required attributes for subscription: hub_device_name=%s, hub_product_key=%s", 
                                        device_id, 
                                        getattr(device, 'hub_device_name', 'None'),
                                        getattr(device, 'hub_product_key', 'None'))
@@ -239,11 +256,11 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     else:
                         self.mqtt_connected = False
                         self.mqtt_subscribed = False
-                        _LOGGER.error("Failed to connect to MQTT broker")
+                        _LOGGER.debug("Failed to connect to MQTT broker, continuing with REST polling")
                 else:
                     self.mqtt_connected = False
                     self.mqtt_subscribed = False
-                    _LOGGER.error("Failed to subscribe to device status updates")
+                    _LOGGER.debug("Failed to subscribe to device status updates")
             else:
                 _LOGGER.warning("No devices to subscribe to (devices_to_subscribe=%d, hid_list=%d)", 
                                len(devices_to_subscribe), len(hid_list))
@@ -276,7 +293,7 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.info("=== END COORDINATOR MQTT UPDATE ===")
             
         except Exception as err:
-            _LOGGER.error("Error processing MQTT status update: %s", err)
+            _LOGGER.exception("Error processing MQTT status update: %s", err)
 
     async def _process_mqtt_update(self, data: dict) -> None:
         """Process MQTT update in Home Assistant event loop."""
@@ -312,7 +329,7 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 # Update device status based on MQTT data
                 if hasattr(device, 'set_device_status'):
                     _LOGGER.info("Calling set_device_status with data: %s", data)
-                    _LOGGER.warning("REAL MQTT UPDATE RECEIVED: %s", data)
+                    _LOGGER.debug("REAL MQTT UPDATE RECEIVED: %s", data)
                     device.set_device_status(data)
                     _LOGGER.info("Device status updated successfully")
                     
@@ -327,9 +344,9 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self.async_update_listeners()
                     _LOGGER.info("Coordinator update triggered")
                 else:
-                    _LOGGER.warning("Device does not have set_device_status method")
+                    _LOGGER.debug("Device does not have set_device_status method")
             else:
-                _LOGGER.warning("No matching device found for ID %s", device_id)
+                _LOGGER.debug("No matching device found for ID %s", device_id)
                 _LOGGER.info("Available devices:")
                 for dev_id, dev in self.devices.items():
                     _LOGGER.info("  %s: %s (mid: %s)", dev_id, type(dev).__name__, getattr(dev, 'mid', 'NO_MID'))
@@ -337,7 +354,7 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.info("=== END PROCESSING MQTT UPDATE ===")
                 
         except Exception as err:
-            _LOGGER.error("Error processing MQTT update: %s", err)
+            _LOGGER.exception("Error processing MQTT update: %s", err)
 
     def _start_subscription_renewal_task(self):
         """Start the periodic subscription renewal task."""
@@ -379,7 +396,7 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         )
                 except Exception as reconnect_err:
                     self.mqtt_connected = False
-                    _LOGGER.error(
+                    _LOGGER.debug(
                         "MQTT reconnect error: %s",
                         reconnect_err,
                     )
@@ -448,4 +465,4 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.mqtt_subscribed = False
                 _LOGGER.info("MQTT connection cleaned up")
         except Exception as err:
-            _LOGGER.error("Error during coordinator shutdown: %s", err)
+            _LOGGER.warning("Error during coordinator shutdown: %s", err)
