@@ -8,5 +8,5 @@
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/domi18/homgar-homeassistant/issues",
   "requirements": ["requests>=2.0.0", "paho-mqtt>=1.6.0"],
-  "version": "0.1.5"
+  "version": "0.1.6"
 }

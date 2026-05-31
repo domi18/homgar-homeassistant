@@ -147,9 +147,17 @@ class HomgarDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return devices
 
         except HomgarApiException as err:
+            if self.devices:
+                _LOGGER.warning(
+                    "HomGar API error, keeping last known data: %s",
+                    err
+                )
+                return dict(self.devices)
+
             _LOGGER.exception(
-                "HOMGAR API EXCEPTION"
+                "HOMGAR API EXCEPTION WITH NO CACHED DATA"
             )
+
             raise UpdateFailed(
                 f"Error communicating with HomGar API: {err}"
             ) from err
